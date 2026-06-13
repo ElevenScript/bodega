@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bodega - Inventario</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f7f5ef;
+      color: #1f2937;
+      font-family: system-ui, -apple-system, sans-serif;
+      padding: 40px;
+    }
+    .header {
+      margin-bottom: 32px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 16px;
+    }
+    .kicker {
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #7c3aed;
+      font-weight: 600;
+    }
+    .title {
+      font-size: 36px;
+      font-weight: 800;
+      margin: 4px 0 0;
+      letter-spacing: -0.02em;
+    }
+    
+    /* Tarjetas de Conteo */
+    .dashboard {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 32px;
+      max-width: 600px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      flex: 1;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      text-align: center;
+    }
+    .card-title {
+      font-size: 13px;
+      color: #6b7280;
+      text-transform: uppercase;
+      font-weight: 700;
+      margin: 0 0 12px;
+      letter-spacing: 0.05em;
+    }
+    .card-value {
+      font-size: 40px;
+      font-weight: 800;
+    }
+    .text-lleno { color: #b91c1c; } /* Rojo para "lleno" */
+    .text-vacio { color: #15803d; } /* Verde para "vacío" */
+    
+    /* Pestañas de Filtro */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      max-width: 800px;
+    }
+    .tab-btn {
+      padding: 10px 18px;
+      border: 1px solid #d1d5db;
+      background: white;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      color: #4b5563;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { background: #f3f4f6; }
+    .tab-btn.active {
+      background: #7c3aed;
+      color: white;
+      border-color: #7c3aed;
+    }
+    
+    /* Listado de Barricas */
+    .list-container {
+      background: white;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+      max-width: 800px;
+    }
+    .list-item {
+      padding: 16px 24px;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .item-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .item-name { font-weight: 600; font-size: 16px; }
+    .item-details { font-size: 14px; color: #6b7280; }
+    
+    .badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge.lleno { background: #fee2e2; color: #b91c1c; }
+    .badge.vacio { background: #dcfce3; color: #15803d; }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <h1 class="title">Control de Bodega</h1>
+  </header>
+
+  <div class="dashboard">
+    <div class="card">
+      <h2 class="card-title">Cantidad Llenas</h2>
+      <div id="count-llenas" class="card-value text-lleno">0</div>
+    </div>
+    <div class="card">
+      <h2 class="card-title">Cantidad Vacías</h2>
+      <div id="count-vacias" class="card-value text-vacio">0</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-filter="todas">Todas las barricas</button>
+    <button class="tab-btn" data-filter="llenas">Listado Barricas Llenas</button>
+    <button class="tab-btn" data-filter="vacias">Listado Barricas Vacías</button>
+  </div>
+
+  <div class="list-container" id="barricas-list">
+    </div>
+
+  <script>
+    // Simulamos una base de datos de barricas según tu dibujo
+    const barricas = [
+      { id: 1, marca: "Roble Francés", litros: 32, estado: "lleno" },
+      { id: 2, marca: "Roble Americano", litros: 32, estado: "vacio" },
+      { id: 3, marca: "Roble Francés", litros: 32, estado: "lleno" },
+      { id: 4, marca: "Acero Inoxidable", litros: 64, estado: "vacio" },
+      { id: 5, marca: "Roble Americano", litros: 32, estado: "lleno" },
+      { id: 6, marca: "Cerezo", litros: 32, estado: "vacio" }
+    ];
+
+    let filtroActual = "todas"; // 'todas', 'llenas', 'vacias'
+
+    // Referencias al HTML
+    const listEl = document.getElementById('barricas-list');
+    const countLlenasEl = document.getElementById('count-llenas');
+    const countVaciasEl = document.getElementById('count-vacias');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+
+    // 1. Función para actualizar el panel de conteo superior
+    function actualizarConteo() {
+      const llenas = barricas.filter(b => b.estado === 'lleno').length;
+      const vacias = barricas.filter(b => b.estado === 'vacio').length;
+      countLlenasEl.textContent = llenas;
+      countVaciasEl.textContent = vacias;
+    }
+
+    // 2. Función para renderizar la lista dependiendo de qué botón se apretó
+    function renderizarLista() {
+      listEl.innerHTML = ""; // Limpiamos la lista actual
+      
+      const filtradas = barricas.filter(b => {
+        if (filtroActual === 'todas') return true;
+        if (filtroActual === 'llenas') return b.estado === 'lleno';
+        if (filtroActual === 'vacias') return b.estado === 'vacio';
+      });
+
+      filtradas.forEach(b => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        
+        const badgeClass = b.estado === 'lleno' ? 'badge lleno' : 'badge vacio';
+        const estadoTexto = b.estado === 'lleno' ? 'Lleno' : 'Vacío';
+
+        div.innerHTML = `
+          <div class="item-info">
+            <span class="item-name">Barrica ${b.marca}</span>
+            <span class="item-details">Capacidad: ${b.litros} Litros</span>
+          </div>
+          <span class="${badgeClass}">${estadoTexto}</span>
+        `;
+        listEl.appendChild(div);
+      });
+    }
+
+    // 3. Evento click en las pestañas para filtrar
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        tabBtns.forEach(t => t.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        filtroActual = e.target.dataset.filter;
+        renderizarLista();
+      });
+    });
+
+    // Arrancamos la aplicación
+    actualizarConteo();
+    renderizarLista();
+  </script>
+</body>
+</html>
